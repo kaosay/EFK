@@ -1,0 +1,55 @@
+services:
+    elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+        restart: on-failure
+        mem_limit: 4g
+        environment:
+          - discovery.type=single-node                  # single-node cluster
+          - xpack.security.enabled=false                # disable password security
+          - xpack.security.http.ssl.enabled=false       # disable tls/ssl encryption
+          - xpack.security.transport.ssl.enabled=false  # disable tls/ssl encryption
+          - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+        ports:
+          - 9200:9200
+        volumes:
+          # sudo chown -R 1000:1000 /var/lib/elasticsearch
+          - /var/lib/elasticsearch:/usr/share/elasticsearch/data
+        networks:
+          - local
+        depends_on:
+          - fluent-bit
+    kibana:
+        image: docker.elastic.co/kibana/kibana:8.13.4
+        restart: on-failure
+        mem_limit: 1g
+        environment:
+          - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+          - SERVER_HEAP_SIZE=512mm
+        ports:
+          - 5601:5601
+        networks:
+          - local
+        depends_on:
+          - fluent-bit
+          - elasticsearch
+    fluent-bit:
+        image: fluent/fluent-bit:4.0
+        command:
+          - /fluent-bit/bin/fluent-bit
+          - --config=/etc/fluent-bit/fluent-bit.conf
+        environment:
+          - FLB_ES_HOST=elasticsearch
+          - FLB_ES_PORT=9200
+        ports:
+          #- 2020:2020
+          - 24224:24224
+        volumes:
+          - ./conf/:/etc/fluent-bit/:ro
+          - /igs-server:/igs-server
+          - /opt/efk/log/fluent-bit:/var/log/fluent-bit
+        networks:
+          - local
+
+networks:
+  local:
+    driver: bridge
