@@ -20,14 +20,14 @@ services:
     
             # 等待 ES 启动（使用 HTTP）
             echo "Waiting for Elasticsearch availability";
-            until curl -s http://es01:9200 | grep -q "missing authentication credentials"; do
+            until curl -s http://elasticsearch:9200 | grep -q "missing authentication credentials"; do
               sleep 30;
             done;
     
             # 设置 kibana_system 密码（使用 HTTP）
             echo "Setting kibana_system password";
             until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" \
-              http://es01:9200/_security/user/kibana_system/_password \
+              http://elasticsearch:9200/_security/user/kibana_system/_password \
               -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
               sleep 10;
             done;
@@ -40,6 +40,9 @@ services:
           timeout: 5s
           retries: 30
     elasticsearch:
+        depends_on:
+          setup:
+            condition: service_healthy
         image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
         container_name: elasticsearch
         restart: unless-stopped
@@ -51,7 +54,7 @@ services:
           - xpack.security.http.ssl.enabled=false       # disable tls/ssl encryption
           - xpack.security.transport.ssl.enabled=false  # disable tls/ssl encryption
           - "ES_JAVA_OPTS=-Xms3g -Xmx3g"
-          - ELASTIC_PASSWORD=Qy3uacBChz82ErxlHMzE        # 设置 elasticsearch 用户的密码
+          - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}        # 设置 elasticsearch 用户的密码
         ports:
           - 9200:9200
         volumes:
@@ -59,9 +62,16 @@ services:
           - ./elasticsearch:/usr/share/elasticsearch/data
         networks:
           - local
-        depends_on:
-          - fluent-bit
+
+        healthcheck:
+          test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+          interval: 10s
+          timeout: 10s
+          retries: 120
     kibana:
+        depends_on:
+          elasticsearch:
+            condition: service_healthy
         image: docker.elastic.co/kibana/kibana:8.13.4
         container_name: kibana
         restart: unless-stopped
@@ -72,7 +82,7 @@ services:
           - SERVER_HEAP_SIZE=512mm
           - DISABLE_OBSERVABILITY=true  # 禁用 Observability 插件
           - ELASTICSEARCH_USERNAME=kibana  # 设置 Kibana 使用的 Elasticsearch 用户名
-          - ELASTICSEARCH_PASSWORD=BtXtm9Z83tGl6iM1VDDn # 设置 Kibana 的密码，需与 Elasticsearch 密码匹配
+          - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD} # 设置 Kibana 的密码，需与 Elasticsearch 密码匹配
           - NODE_OPTIONS=--openssl-legacy-provider
         ports:
           - 5601:5601
