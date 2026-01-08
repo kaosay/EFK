@@ -1,4 +1,44 @@
 services:
+      setup:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+        user: '0'
+        command: >
+          bash -c '
+            if [ x${ELASTIC_PASSWORD} == x ]; then
+              echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
+              exit 1;
+            elif [ x${KIBANA_PASSWORD} == x ]; then
+              echo "Set the KIBANA_PASSWORD environment variable in the .env file";
+              exit 1;
+            fi;
+    
+            # 修复权限（保持不变）
+            chown -R 1000:0 /usr/share/elasticsearch/data;
+            sync;
+            find /usr/share/elasticsearch -type d -exec chmod 0750 {} \;;
+            find /usr/share/elasticsearch -type f -exec chmod 0640 {} \;;
+    
+            # 等待 ES 启动（使用 HTTP）
+            echo "Waiting for Elasticsearch availability";
+            until curl -s http://es01:9200 | grep -q "missing authentication credentials"; do
+              sleep 30;
+            done;
+    
+            # 设置 kibana_system 密码（使用 HTTP）
+            echo "Setting kibana_system password";
+            until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" \
+              http://es01:9200/_security/user/kibana_system/_password \
+              -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
+              sleep 10;
+            done;
+    
+            echo "All done!";
+          '
+        healthcheck:
+          test: ["CMD-SHELL", "[ -f /usr/share/elasticsearch/data/.initialized ] || exit 1"]
+          interval: 10s
+          timeout: 5s
+          retries: 30
     elasticsearch:
         image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
         container_name: elasticsearch
