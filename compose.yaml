@@ -5,10 +5,11 @@ services:
         mem_limit: 4g
         environment:
           - discovery.type=single-node                  # single-node cluster
-          - xpack.security.enabled=false                # disable password security
+          - xpack.security.enabled=true                 # disable password security
           - xpack.security.http.ssl.enabled=false       # disable tls/ssl encryption
           - xpack.security.transport.ssl.enabled=false  # disable tls/ssl encryption
-          - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+          - "ES_JAVA_OPTS=-Xms3g -Xmx3g"
+          - ELASTIC_PASSWORD=Qy3uacBChz82ErxlHMzE        # 设置 elasticsearch 用户的密码
         ports:
           - 9200:9200
         volumes:
@@ -25,6 +26,10 @@ services:
         environment:
           - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
           - SERVER_HEAP_SIZE=512mm
+          - DISABLE_OBSERVABILITY=true  # 禁用 Observability 插件
+          - ELASTICSEARCH_USERNAME=kibana  # 设置 Kibana 使用的 Elasticsearch 用户名
+          - ELASTICSEARCH_PASSWORD=BtXtm9Z83tGl6iM1VDDn # 设置 Kibana 的密码，需与 Elasticsearch 密码匹配
+          - NODE_OPTIONS=--openssl-legacy-provider
         ports:
           - 5601:5601
         networks:
