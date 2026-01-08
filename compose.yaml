@@ -103,6 +103,7 @@ services:
         environment:
           - FLB_ES_HOST=elasticsearch
           - FLB_ES_PORT=9200
+          - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
         ports:
           #- 2020:2020
           - 24224:24224
