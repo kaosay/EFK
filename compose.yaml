@@ -1,5 +1,5 @@
 services:
-      setup:
+    setup:
         image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
         user: '0'
         command: >
