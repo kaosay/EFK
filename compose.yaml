@@ -1,6 +1,11 @@
 services:
     setup:
         image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+        volumes:
+          # sudo chown -R 1000:1000 ./elasticsearch
+          - ./elasticsearch:/usr/share/elasticsearch/data
+        networks:
+          - local
         user: '0'
         command: >
           bash -c '
@@ -34,15 +39,10 @@ services:
     
             echo "All done!";
           '
-        healthcheck:
-          test: ["CMD-SHELL", "[ -f /usr/share/elasticsearch/data/.initialized ] || exit 1"]
-          interval: 10s
-          timeout: 5s
-          retries: 30
+            
     elasticsearch:
         depends_on:
-          setup:
-            condition: service_healthy
+          - setup
         image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
         container_name: elasticsearch
         restart: unless-stopped
@@ -58,13 +58,12 @@ services:
         ports:
           - 9200:9200
         volumes:
-          # sudo chown -R 1000:1000 ./elasticsearch
           - ./elasticsearch:/usr/share/elasticsearch/data
         networks:
           - local
 
         healthcheck:
-          test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+          test: ["CMD-SHELL", "curl http://localhost:9200"]
           interval: 10s
           timeout: 10s
           retries: 120
@@ -81,16 +80,14 @@ services:
           - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
           - SERVER_HEAP_SIZE=512mm
           - DISABLE_OBSERVABILITY=true  # 禁用 Observability 插件
-          - ELASTICSEARCH_USERNAME=kibana  # 设置 Kibana 使用的 Elasticsearch 用户名
+          - ELASTICSEARCH_USERNAME=kibana_system  # 设置 Kibana 使用的 Elasticsearch 用户名
           - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD} # 设置 Kibana 的密码，需与 Elasticsearch 密码匹配
           - NODE_OPTIONS=--openssl-legacy-provider
         ports:
           - 5601:5601
         networks:
           - local
-        depends_on:
-          - fluent-bit
-          - elasticsearch
+
     fluent-bit:
         image: fluent/fluent-bit:4.0
         container_name: fluent-bit
